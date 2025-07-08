@@ -7,5 +7,4 @@ urlpatterns = [
     path('account/', include('accounts.urls')),
     path('players/', include('players.urls')),
     path('settings/', include('settings.urls')),
-    path('control/', include('servercontrol.urls')),
 ]
