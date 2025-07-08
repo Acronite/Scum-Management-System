@@ -1,0 +1,367 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <h1 class="h3 mb-0 text-gray-800">
+                    <i class="fas fa-server text-primary me-2"></i>
+                    Server Control Dashboard
+                </h1>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-outline-primary" onclick="refreshDashboard()">
+                        <i class="fas fa-sync-alt me-1"></i>Refresh
+                    </button>
+                    <a href="{% url 'admin:servercontrol_gameserver_add' %}" class="btn btn-primary">
+                        <i class="fas fa-plus me-1"></i>Add Server
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- System Overview Cards -->
+    <div class="row mb-4">
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-primary shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                                Total Servers
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ total_servers }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-server fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-success shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                                Running Servers
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ running_servers }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-play fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-info shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
+                                System CPU
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ system_metrics.cpu_usage|floatformat:1 }}%</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-microchip fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-warning shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
+                                System Memory
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ system_metrics.memory.percent|floatformat:1 }}%</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-memory fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Servers Grid -->
+    <div class="row">
+        {% for server_info in servers %}
+        <div class="col-lg-6 col-xl-4 mb-4">
+            <div class="card shadow server-card" data-server-id="{{ server_info.server.id }}">
+                <div class="card-header py-3 d-flex justify-content-between align-items-center">
+                    <h6 class="m-0 font-weight-bold">
+                        <a href="{% url 'server_detail' server_info.server.id %}" class="text-decoration-none">
+                            {{ server_info.server.name }}
+                        </a>
+                    </h6>
+                    <span class="badge server-status" data-status="{{ server_info.server.status }}">
+                        {{ server_info.server.get_status_display }}
+                    </span>
+                </div>
+                <div class="card-body">
+                    <!-- Server Info -->
+                    <div class="mb-3">
+                        <small class="text-muted">
+                            <i class="fas fa-network-wired me-1"></i>
+                            {{ server_info.server.server_ip }}:{{ server_info.server.server_port }}
+                        </small>
+                    </div>
+
+                    <!-- Metrics -->
+                    {% if server_info.metrics %}
+                    <div class="row text-center mb-3">
+                        <div class="col-4">
+                            <div class="text-xs text-muted">Players</div>
+                            <div class="font-weight-bold">
+                                <span class="player-count">{{ server_info.metrics.player_count }}</span>/{{ server_info.metrics.max_players }}
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="text-xs text-muted">CPU</div>
+                            <div class="font-weight-bold cpu-usage">
+                                {% if server_info.metrics.cpu_usage %}{{ server_info.metrics.cpu_usage|floatformat:1 }}%{% else %}--{% endif %}
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="text-xs text-muted">Memory</div>
+                            <div class="font-weight-bold memory-usage">
+                                {% if server_info.metrics.memory_percentage %}{{ server_info.metrics.memory_percentage|floatformat:1 }}%{% else %}--{% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Control Buttons -->
+                    <div class="btn-group w-100" role="group">
+                        {% if server_info.server.status == 'running' %}
+                            <button class="btn btn-sm btn-warning" onclick="serverAction({{ server_info.server.id }}, 'restart')">
+                                <i class="fas fa-redo me-1"></i>Restart
+                            </button>
+                            <button class="btn btn-sm btn-danger" onclick="serverAction({{ server_info.server.id }}, 'stop')">
+                                <i class="fas fa-stop me-1"></i>Stop
+                            </button>
+                        {% elif server_info.server.status == 'stopped' %}
+                            <button class="btn btn-sm btn-success" onclick="serverAction({{ server_info.server.id }}, 'start')">
+                                <i class="fas fa-play me-1"></i>Start
+                            </button>
+                        {% else %}
+                            <button class="btn btn-sm btn-secondary" disabled>
+                                <i class="fas fa-spinner fa-spin me-1"></i>{{ server_info.server.get_status_display }}
+                            </button>
+                        {% endif %}
+                        <a href="{% url 'server_detail' server_info.server.id %}" class="btn btn-sm btn-outline-primary">
+                            <i class="fas fa-cog me-1"></i>Manage
+                        </a>
+                    </div>
+
+                    <!-- Error Indicator -->
+                    {% if server_info.error_count > 0 %}
+                    <div class="mt-2">
+                        <small class="text-danger">
+                            <i class="fas fa-exclamation-triangle me-1"></i>
+                            {{ server_info.error_count }} recent error{{ server_info.error_count|pluralize }}
+                        </small>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-12">
+            <div class="card shadow">
+                <div class="card-body text-center py-5">
+                    <i class="fas fa-server fa-3x text-gray-300 mb-3"></i>
+                    <h5 class="text-gray-600">No servers configured</h5>
+                    <p class="text-gray-500 mb-4">Get started by adding your first game server.</p>
+                    <a href="{% url 'admin:servercontrol_gameserver_add' %}" class="btn btn-primary">
+                        <i class="fas fa-plus me-1"></i>Add Your First Server
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Loading Modal -->
+<div class="modal fade" id="loadingModal" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog modal-sm modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-body text-center py-4">
+                <div class="spinner-border text-primary mb-3" role="status"></div>
+                <div class="loading-text">Processing...</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Real-time updates
+let updateInterval;
+
+document.addEventListener('DOMContentLoaded', function() {
+    startRealTimeUpdates();
+});
+
+function startRealTimeUpdates() {
+    updateInterval = setInterval(updateServerStatus, 5000); // Update every 5 seconds
+}
+
+function updateServerStatus() {
+    const serverCards = document.querySelectorAll('.server-card');
+    
+    serverCards.forEach(card => {
+        const serverId = card.dataset.serverId;
+        
+        fetch(`/control/api/server/${serverId}/status/`)
+            .then(response => response.json())
+            .then(data => {
+                // Update status badge
+                const statusBadge = card.querySelector('.server-status');
+                statusBadge.className = 'badge badge-' + getStatusClass(data.status);
+                statusBadge.textContent = getStatusDisplay(data.status);
+                
+                // Update metrics
+                if (data.player_count !== undefined) {
+                    const playerCount = card.querySelector('.player-count');
+                    if (playerCount) playerCount.textContent = data.player_count;
+                }
+                
+                if (data.cpu_usage !== undefined && data.cpu_usage !== null) {
+                    const cpuUsage = card.querySelector('.cpu-usage');
+                    if (cpuUsage) cpuUsage.textContent = data.cpu_usage.toFixed(1) + '%';
+                }
+                
+                if (data.memory_percentage !== undefined && data.memory_percentage !== null) {
+                    const memoryUsage = card.querySelector('.memory-usage');
+                    if (memoryUsage) memoryUsage.textContent = data.memory_percentage.toFixed(1) + '%';
+                }
+            })
+            .catch(error => console.error('Error updating server status:', error));
+    });
+}
+
+function serverAction(serverId, action) {
+    const modal = new bootstrap.Modal(document.getElementById('loadingModal'));
+    const loadingText = document.querySelector('.loading-text');
+    
+    loadingText.textContent = `${action.charAt(0).toUpperCase() + action.slice(1)}ing server...`;
+    modal.show();
+    
+    const formData = new FormData();
+    formData.append('action', action);
+    formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+    
+    fetch(`/control/server/${serverId}/action/`, {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        modal.hide();
+        if (data.success) {
+            showAlert('success', data.message);
+            // Immediately update the UI
+            setTimeout(updateServerStatus, 1000);
+        } else {
+            showAlert('danger', data.error);
+        }
+    })
+    .catch(error => {
+        modal.hide();
+        showAlert('danger', 'An error occurred: ' + error.message);
+    });
+}
+
+function refreshDashboard() {
+    location.reload();
+}
+
+function showAlert(type, message) {
+    const alertContainer = document.querySelector('.container-fluid');
+    const alertHtml = `
+        <div class="alert alert-${type} alert-dismissible fade show" role="alert">
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    `;
+    alertContainer.insertAdjacentHTML('afterbegin', alertHtml);
+    
+    // Auto-dismiss after 5 seconds
+    setTimeout(() => {
+        const alert = alertContainer.querySelector('.alert');
+        if (alert) {
+            const bsAlert = new bootstrap.Alert(alert);
+            bsAlert.close();
+        }
+    }, 5000);
+}
+
+function getStatusClass(status) {
+    const statusMap = {
+        'running': 'success',
+        'stopped': 'secondary',
+        'starting': 'info',
+        'stopping': 'warning',
+        'crashed': 'danger',
+        'maintenance': 'warning'
+    };
+    return statusMap[status] || 'secondary';
+}
+
+function getStatusDisplay(status) {
+    const statusMap = {
+        'running': 'Running',
+        'stopped': 'Stopped',
+        'starting': 'Starting',
+        'stopping': 'Stopping',
+        'crashed': 'Crashed',
+        'maintenance': 'Maintenance'
+    };
+    return statusMap[status] || status;
+}
+
+// Add CSRF token for AJAX requests
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+// Add hidden CSRF token to page
+document.addEventListener('DOMContentLoaded', function() {
+    if (!document.querySelector('[name=csrfmiddlewaretoken]')) {
+        const csrfToken = getCookie('csrftoken');
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'csrfmiddlewaretoken';
+        input.value = csrfToken;
+        document.body.appendChild(input);
+    }
+});
+</script>
+
+{% endblock %}
