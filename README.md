@@ -52,9 +52,11 @@ A comprehensive Django-based control panel for managing game servers with real-t
 ## Installation
 
 ### Prerequisites
-- Python 3.8+
-- Django 3.1.2+
+- Python 3.8-3.12 (Python 3.11 or 3.12 recommended)
+- Django 4.0+
 - PostgreSQL/MySQL (optional, SQLite works for development)
+
+**Note**: Python 3.13+ has deprecated the `cgi` module. If you encounter issues, use Python 3.11 or 3.12.
 
 ### Setup
 

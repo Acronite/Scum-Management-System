@@ -137,8 +137,10 @@ static/css/
 ```
 
 ### Configuration Files:
-- `requirements.txt` - Python dependencies
-- `setup.py` - Automated setup script
+- `requirements.txt` - Updated Python dependencies (Django 4.0+)
+- `setup.py` - Automated setup script with compatibility checks
+- `compatibility_fixes.py` - Python 3.13+ CGI module fix
+- `PYTHON_CGI_FIX.md` - CGI deprecation solution guide
 - `README.md` - Comprehensive documentation
 - Updated `home/settings.py` and `home/urls.py`
 
@@ -161,11 +163,18 @@ static/css/
 
 ## 🔧 Setup & Deployment
 
+### Python 3.13+ Compatibility:
+**Important**: Python 3.13+ deprecated the `cgi` module. For best compatibility:
+- **Use Python 3.11 or 3.12** (recommended)
+- **Run compatibility check**: `python3 compatibility_fixes.py`
+- **Updated dependencies**: Django 4.0+ included in requirements
+
 ### Quick Start:
-1. **Run the setup script**: `python3 setup.py`
-2. **Start the server**: `python manage.py runserver`
-3. **Access the control panel**: `http://localhost:8000/control/`
-4. **Add servers**: Via Django admin at `/admin/`
+1. **Check compatibility**: `python3 compatibility_fixes.py` (if Python 3.13+)
+2. **Run the setup script**: `python3 setup.py`
+3. **Start the server**: `python manage.py runserver`
+4. **Access the control panel**: `http://localhost:8000/control/`
+5. **Add servers**: Via Django admin at `/admin/`
 
 ### Production Deployment:
 1. **Install dependencies**: `pip install -r requirements.txt`

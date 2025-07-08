@@ -19,6 +19,9 @@ def check_python_version():
     if sys.version_info < (3, 8):
         print("❌ Python 3.8+ is required. Current version:", sys.version)
         return False
+    elif sys.version_info >= (3, 13):
+        print("⚠️  Python 3.13+ detected. Some dependencies may need updates.")
+        print("   Consider using Python 3.11 or 3.12 for best compatibility.")
     print("✅ Python version:", sys.version.split()[0])
     return True
 
@@ -131,6 +134,16 @@ def main():
     # Check Python version
     if not check_python_version():
         sys.exit(1)
+    
+    # Check for Python 3.13+ compatibility issues
+    if sys.version_info >= (3, 13):
+        print("\n🔧 Running compatibility check...")
+        try:
+            subprocess.check_call([sys.executable, 'compatibility_fixes.py'])
+        except subprocess.CalledProcessError:
+            print("⚠️  Compatibility check completed with warnings")
+        except FileNotFoundError:
+            print("ℹ️  Compatibility check script not found (optional)")
     
     # Check current directory
     if not os.path.exists('manage.py'):
