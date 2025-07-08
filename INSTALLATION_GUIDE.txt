@@ -1,0 +1,65 @@
+# Game Server Control Panel - Quick Installation
+
+## 📦 Package Contents
+This zip file contains a complete Django-based game server control panel.
+
+## 🚀 Quick Setup
+
+### 1. Extract the Package
+```bash
+unzip gameserver_control_panel_*.zip
+cd gameserver_control_panel/
+```
+
+### 2. Install Dependencies
+```bash
+# Recommended: Use Python 3.11 or 3.12
+python3.11 -m venv gameserver_env
+source gameserver_env/bin/activate  # Linux/Mac
+# or
+gameserver_env\Scripts\activate   # Windows
+
+pip install -r requirements.txt
+```
+
+### 3. Run Setup
+```bash
+# Check compatibility (Python 3.13+)
+python compatibility_fixes.py
+
+# Run automated setup
+python setup.py
+```
+
+### 4. Start the Server
+```bash
+python manage.py runserver
+```
+
+### 5. Access the Control Panel
+- **Control Panel**: http://localhost:8000/control/
+- **Admin Interface**: http://localhost:8000/admin/
+
+## 📚 Documentation
+- **README.md** - Complete documentation
+- **PYTHON_CGI_FIX.md** - Python 3.13+ compatibility
+- **GAMESERVER_CONTROL_PANEL_SUMMARY.md** - Feature overview
+
+## 🎮 Features
+✅ Server start/stop/restart controls
+✅ Real-time monitoring and metrics
+✅ Performance charts and graphs
+✅ RCON console integration
+✅ Centralized logging system
+✅ Configuration management
+✅ Backup and recovery tools
+✅ Mobile-responsive interface
+
+## 🆘 Support
+If you encounter issues:
+1. Check PYTHON_CGI_FIX.md for Python 3.13+ problems
+2. Use Python 3.11 or 3.12 for best compatibility
+3. Run `python compatibility_fixes.py` for diagnostics
+
+---
+**Game Server Control Panel** - Professional server management made easy!
