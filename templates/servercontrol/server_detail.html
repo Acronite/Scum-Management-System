@@ -1,0 +1,520 @@
+{% extends 'base.html' %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% url 'django.contrib.staticfiles.views.serve' filename='css/servercontrol.css' %}">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <nav aria-label="breadcrumb">
+                        <ol class="breadcrumb mb-2">
+                            <li class="breadcrumb-item"><a href="{% url 'control_dashboard' %}">Control Panel</a></li>
+                            <li class="breadcrumb-item active">{{ server.name }}</li>
+                        </ol>
+                    </nav>
+                    <h1 class="h3 mb-0 text-gray-800">
+                        <span class="status-indicator status-{{ server.status }}"></span>
+                        {{ server.name }}
+                        <span class="badge badge-{{ server.status }} ms-2" id="serverStatus">
+                            {{ server.get_status_display }}
+                        </span>
+                    </h1>
+                    <p class="text-muted mb-0">
+                        <i class="fas fa-network-wired me-1"></i>
+                        {{ server.server_ip }}:{{ server.server_port }}
+                    </p>
+                </div>
+                <div class="d-flex gap-2">
+                    {% if server.status == 'running' %}
+                        <button class="btn btn-warning" onclick="serverAction('restart')">
+                            <i class="fas fa-redo me-1"></i>Restart
+                        </button>
+                        <button class="btn btn-danger" onclick="serverAction('stop')">
+                            <i class="fas fa-stop me-1"></i>Stop
+                        </button>
+                    {% elif server.status == 'stopped' %}
+                        <button class="btn btn-success" onclick="serverAction('start')">
+                            <i class="fas fa-play me-1"></i>Start Server
+                        </button>
+                    {% endif %}
+                    <div class="dropdown">
+                        <button class="btn btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                            <i class="fas fa-cog me-1"></i>Actions
+                        </button>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="{% url 'server_config' server.id %}">
+                                <i class="fas fa-file-alt me-2"></i>Configuration
+                            </a></li>
+                            <li><a class="dropdown-item" href="{% url 'server_logs' server.id %}">
+                                <i class="fas fa-list me-2"></i>View All Logs
+                            </a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="#" onclick="createBackup()">
+                                <i class="fas fa-save me-2"></i>Create Backup
+                            </a></li>
+                            {% if server.status == 'running' %}
+                            <li><a class="dropdown-item text-danger" href="#" onclick="serverAction('kill')">
+                                <i class="fas fa-skull-crossbones me-2"></i>Force Stop
+                            </a></li>
+                            {% endif %}
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Left Column - Metrics and Charts -->
+        <div class="col-lg-8">
+            <!-- Server Metrics -->
+            <div class="card shadow mb-4">
+                <div class="card-header py-3 d-flex justify-content-between align-items-center">
+                    <h6 class="m-0 font-weight-bold text-primary">Server Metrics</h6>
+                    <div class="btn-group btn-group-sm" role="group">
+                        <button type="button" class="btn btn-outline-primary active" onclick="loadMetrics(24)">24h</button>
+                        <button type="button" class="btn btn-outline-primary" onclick="loadMetrics(168)">7d</button>
+                        <button type="button" class="btn btn-outline-primary" onclick="loadMetrics(720)">30d</button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="metricsChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Console -->
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Server Console</h6>
+                </div>
+                <div class="card-body p-0">
+                    <div class="console-container">
+                        <div class="console-header">
+                            Server Console - {{ server.name }}
+                            <span class="float-end">
+                                <button class="btn btn-sm btn-outline-light" onclick="clearConsole()">
+                                    <i class="fas fa-trash"></i> Clear
+                                </button>
+                            </span>
+                        </div>
+                        <div class="console-body" id="consoleOutput">
+                            <div class="text-muted">Console ready. Type commands below...</div>
+                        </div>
+                        <form onsubmit="executeCommand(event)">
+                            <div class="input-group">
+                                <input type="text" class="console-input" id="commandInput" 
+                                       placeholder="Enter RCON command..." autocomplete="off">
+                                <button class="btn btn-outline-success" type="submit">
+                                    <i class="fas fa-paper-plane"></i>
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column - Status and Logs -->
+        <div class="col-lg-4">
+            <!-- Current Status -->
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Current Status</h6>
+                </div>
+                <div class="card-body" id="statusCard">
+                    <div class="row text-center">
+                        <div class="col-6 mb-3">
+                            <div class="text-xs text-muted">Players Online</div>
+                            <div class="h4 mb-0 font-weight-bold text-primary" id="playerCount">--</div>
+                        </div>
+                        <div class="col-6 mb-3">
+                            <div class="text-xs text-muted">Uptime</div>
+                            <div class="h4 mb-0 font-weight-bold text-success" id="uptime">--</div>
+                        </div>
+                        <div class="col-6 mb-3">
+                            <div class="text-xs text-muted">CPU Usage</div>
+                            <div class="h4 mb-0 font-weight-bold text-info" id="cpuUsage">--</div>
+                        </div>
+                        <div class="col-6 mb-3">
+                            <div class="text-xs text-muted">Memory</div>
+                            <div class="h4 mb-0 font-weight-bold text-warning" id="memoryUsage">--</div>
+                        </div>
+                    </div>
+                    <div class="mt-3">
+                        <small class="text-muted" id="lastUpdated">Last updated: --</small>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Logs -->
+            <div class="card shadow mb-4">
+                <div class="card-header py-3 d-flex justify-content-between align-items-center">
+                    <h6 class="m-0 font-weight-bold text-primary">Recent Logs</h6>
+                    <a href="{% url 'server_logs' server.id %}" class="btn btn-sm btn-outline-primary">
+                        View All
+                    </a>
+                </div>
+                <div class="card-body">
+                    <div id="recentLogs" style="max-height: 300px; overflow-y: auto;">
+                        {% for log in logs|slice:":10" %}
+                        <div class="log-entry mb-2 log-{{ log.log_level }}">
+                            <small class="text-muted">{{ log.timestamp|date:"H:i:s" }}</small>
+                            <span class="badge badge-{{ log.log_level }} badge-sm">{{ log.log_level|upper }}</span>
+                            <div class="mt-1">{{ log.message }}</div>
+                        </div>
+                        {% empty %}
+                        <div class="text-muted text-center">No recent logs</div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="card shadow">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Quick Actions</h6>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <button class="btn btn-outline-primary btn-sm" onclick="sendQuickCommand('save')">
+                            <i class="fas fa-save me-1"></i>Save World
+                        </button>
+                        <button class="btn btn-outline-info btn-sm" onclick="sendQuickCommand('list')">
+                            <i class="fas fa-users me-1"></i>List Players
+                        </button>
+                        <button class="btn btn-outline-warning btn-sm" onclick="sendQuickCommand('announce Server restart in 5 minutes')">
+                            <i class="fas fa-bullhorn me-1"></i>Announce Message
+                        </button>
+                        <button class="btn btn-outline-success btn-sm" onclick="refreshServerInfo()">
+                            <i class="fas fa-sync-alt me-1"></i>Refresh Info
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Backup Modal -->
+<div class="modal fade" id="backupModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Create Backup</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="{% url 'create_backup' server.id %}">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="backupName" class="form-label">Backup Name</label>
+                        <input type="text" class="form-control" id="backupName" name="backup_name" 
+                               value="{{ server.name }}_backup_{{ now|date:'Y-m-d_H-i' }}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="backupType" class="form-label">Backup Type</label>
+                        <select class="form-select" id="backupType" name="backup_type" required>
+                            <option value="full">Full Server Backup</option>
+                            <option value="config">Configuration Only</option>
+                            <option value="save">Save Files Only</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Create Backup</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+let chart;
+let updateInterval;
+
+document.addEventListener('DOMContentLoaded', function() {
+    initializeChart();
+    loadMetrics(24);
+    startRealTimeUpdates();
+});
+
+function initializeChart() {
+    const ctx = document.getElementById('metricsChart').getContext('2d');
+    chart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [
+                {
+                    label: 'CPU Usage (%)',
+                    data: [],
+                    borderColor: 'rgb(75, 192, 192)',
+                    tension: 0.1,
+                    yAxisID: 'y'
+                },
+                {
+                    label: 'Memory (%)',
+                    data: [],
+                    borderColor: 'rgb(255, 99, 132)',
+                    tension: 0.1,
+                    yAxisID: 'y'
+                },
+                {
+                    label: 'Players',
+                    data: [],
+                    borderColor: 'rgb(255, 205, 86)',
+                    tension: 0.1,
+                    yAxisID: 'y1'
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    type: 'linear',
+                    display: true,
+                    position: 'left',
+                    max: 100
+                },
+                y1: {
+                    type: 'linear',
+                    display: true,
+                    position: 'right',
+                    grid: {
+                        drawOnChartArea: false,
+                    },
+                }
+            }
+        }
+    });
+}
+
+function loadMetrics(hours) {
+    fetch(`/control/api/server/{{ server.id }}/metrics/?hours=${hours}`)
+        .then(response => response.json())
+        .then(data => {
+            chart.data.labels = data.timestamps.map(ts => new Date(ts).toLocaleTimeString());
+            chart.data.datasets[0].data = data.cpu_usage;
+            chart.data.datasets[1].data = data.memory_percentage;
+            chart.data.datasets[2].data = data.player_count;
+            chart.update();
+        })
+        .catch(error => console.error('Error loading metrics:', error));
+}
+
+function startRealTimeUpdates() {
+    updateInterval = setInterval(() => {
+        updateServerStatus();
+        updateRecentLogs();
+    }, 5000);
+}
+
+function updateServerStatus() {
+    fetch(`/control/api/server/{{ server.id }}/status/`)
+        .then(response => response.json())
+        .then(data => {
+            // Update status elements
+            document.getElementById('playerCount').textContent = data.player_count || '--';
+            document.getElementById('cpuUsage').textContent = data.cpu_usage ? data.cpu_usage.toFixed(1) + '%' : '--';
+            document.getElementById('memoryUsage').textContent = data.memory_percentage ? data.memory_percentage.toFixed(1) + '%' : '--';
+            
+            // Update uptime
+            if (data.uptime_minutes) {
+                const hours = Math.floor(data.uptime_minutes / 60);
+                const minutes = data.uptime_minutes % 60;
+                document.getElementById('uptime').textContent = `${hours}h ${minutes}m`;
+            } else {
+                document.getElementById('uptime').textContent = '--';
+            }
+            
+            // Update last updated time
+            document.getElementById('lastUpdated').textContent = 'Last updated: ' + new Date().toLocaleTimeString();
+            
+            // Update status badge
+            const statusBadge = document.getElementById('serverStatus');
+            statusBadge.className = 'badge badge-' + getStatusClass(data.status) + ' ms-2';
+            statusBadge.textContent = getStatusDisplay(data.status);
+        })
+        .catch(error => console.error('Error updating status:', error));
+}
+
+function updateRecentLogs() {
+    fetch(`/control/api/server/{{ server.id }}/logs/`)
+        .then(response => response.json())
+        .then(data => {
+            const logsContainer = document.getElementById('recentLogs');
+            if (data.logs && data.logs.length > 0) {
+                const newLogs = data.logs.map(log => `
+                    <div class="log-entry mb-2 log-${log.level}">
+                        <small class="text-muted">${new Date(log.timestamp).toLocaleTimeString()}</small>
+                        <span class="badge badge-${log.level} badge-sm">${log.level.toUpperCase()}</span>
+                        <div class="mt-1">${log.message}</div>
+                    </div>
+                `).join('');
+                logsContainer.insertAdjacentHTML('afterbegin', newLogs);
+                
+                // Keep only the latest 10 entries
+                const logEntries = logsContainer.querySelectorAll('.log-entry');
+                if (logEntries.length > 10) {
+                    for (let i = 10; i < logEntries.length; i++) {
+                        logEntries[i].remove();
+                    }
+                }
+            }
+        })
+        .catch(error => console.error('Error updating logs:', error));
+}
+
+function serverAction(action) {
+    const formData = new FormData();
+    formData.append('action', action);
+    formData.append('csrfmiddlewaretoken', getCookie('csrftoken'));
+    
+    fetch(`/control/server/{{ server.id }}/action/`, {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showAlert('success', data.message);
+            setTimeout(updateServerStatus, 1000);
+        } else {
+            showAlert('danger', data.error);
+        }
+    })
+    .catch(error => {
+        showAlert('danger', 'An error occurred: ' + error.message);
+    });
+}
+
+function executeCommand(event) {
+    event.preventDefault();
+    const commandInput = document.getElementById('commandInput');
+    const command = commandInput.value.trim();
+    
+    if (!command) return;
+    
+    // Add command to console
+    addToConsole(`> ${command}`, 'command');
+    
+    const formData = new FormData();
+    formData.append('command', command);
+    formData.append('type', 'rcon');
+    formData.append('csrfmiddlewaretoken', getCookie('csrftoken'));
+    
+    fetch(`/control/server/{{ server.id }}/command/`, {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            addToConsole(data.output || 'Command executed successfully', 'output');
+        } else {
+            addToConsole(`Error: ${data.error}`, 'error');
+        }
+    })
+    .catch(error => {
+        addToConsole(`Error: ${error.message}`, 'error');
+    });
+    
+    commandInput.value = '';
+}
+
+function addToConsole(message, type) {
+    const console = document.getElementById('consoleOutput');
+    const timestamp = new Date().toLocaleTimeString();
+    const messageClass = type === 'error' ? 'text-danger' : type === 'command' ? 'text-info' : 'text-success';
+    
+    const messageElement = document.createElement('div');
+    messageElement.innerHTML = `<span class="text-muted">[${timestamp}]</span> <span class="${messageClass}">${message}</span>`;
+    
+    console.appendChild(messageElement);
+    console.scrollTop = console.scrollHeight;
+}
+
+function clearConsole() {
+    document.getElementById('consoleOutput').innerHTML = '<div class="text-muted">Console cleared.</div>';
+}
+
+function sendQuickCommand(command) {
+    document.getElementById('commandInput').value = command;
+    executeCommand(new Event('submit'));
+}
+
+function createBackup() {
+    const modal = new bootstrap.Modal(document.getElementById('backupModal'));
+    modal.show();
+}
+
+function refreshServerInfo() {
+    updateServerStatus();
+    updateRecentLogs();
+    loadMetrics(24);
+}
+
+// Utility functions
+function getStatusClass(status) {
+    const statusMap = {
+        'running': 'success',
+        'stopped': 'secondary',
+        'starting': 'info',
+        'stopping': 'warning',
+        'crashed': 'danger',
+        'maintenance': 'warning'
+    };
+    return statusMap[status] || 'secondary';
+}
+
+function getStatusDisplay(status) {
+    const statusMap = {
+        'running': 'Running',
+        'stopped': 'Stopped',
+        'starting': 'Starting',
+        'stopping': 'Stopping',
+        'crashed': 'Crashed',
+        'maintenance': 'Maintenance'
+    };
+    return statusMap[status] || status;
+}
+
+function showAlert(type, message) {
+    const alertContainer = document.querySelector('.container-fluid');
+    const alertHtml = `
+        <div class="alert alert-${type} alert-dismissible fade show" role="alert">
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    `;
+    alertContainer.insertAdjacentHTML('afterbegin', alertHtml);
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+</script>
+
+{% endblock %}

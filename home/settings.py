@@ -44,7 +44,8 @@ INSTALLED_APPS = [
     'players',
     'django_filters',
     'bootstrapform',
-    'settings'
+    'settings',
+    'servercontrol'
 ]
 
 MIDDLEWARE = [
